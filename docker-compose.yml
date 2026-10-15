@@ -1,0 +1,93 @@
+name: recycling-scheduling
+
+x-backend-env: &backend-env
+  MYSQL_HOST: db
+  MYSQL_PORT: "3306"
+  MYSQL_DATABASE: ${MYSQL_DATABASE:-recycling}
+  MYSQL_USER: ${MYSQL_USER:-recycling}
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+  DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:3000,http://localhost:8000}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+  TIME_ZONE: ${TIME_ZONE:-Australia/Sydney}
+  PROVIDER_API_KEY: ${PROVIDER_API_KEY:?Set PROVIDER_API_KEY in .env}
+  PROVIDER_NAME: ${PROVIDER_NAME:-Cleanaway Waste Management}
+  PROVIDER_PHONE: ${PROVIDER_PHONE:-1300 000 000}
+  PROVIDER_EMAIL: ${PROVIDER_EMAIL:-recycling@provider.example}
+  PROVIDER_WEBSITE: ${PROVIDER_WEBSITE:-}
+  INTEGRATION_API_KEYS: ${INTEGRATION_API_KEYS:-}
+  OUTPUT_WEBHOOK_URL: ${OUTPUT_WEBHOOK_URL:-}
+  OUTPUT_WEBHOOK_SECRET: ${OUTPUT_WEBHOOK_SECRET:-}
+  EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+  EMAIL_HOST: ${EMAIL_HOST:-}
+  EMAIL_PORT: ${EMAIL_PORT:-25}
+  EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+  EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+  EMAIL_USE_TLS: ${EMAIL_USE_TLS:-false}
+  DEMO_RESIDENT_PASSWORD: ${DEMO_RESIDENT_PASSWORD:-}
+  DEMO_STAFF_PASSWORD: ${DEMO_STAFF_PASSWORD:-}
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-recycling}
+      MYSQL_USER: ${MYSQL_USER:-recycling}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Sends collection reminders and rolls the provider timetable forward every hour.
+  scheduler:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "false"
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: >
+      sh -c "while true; do
+               python manage.py send_reminders;
+               python manage.py seed_data --slots-only;
+               sleep 3600;
+             done"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+
+volumes:
+  mysql-data:
