@@ -1,0 +1,119 @@
+/* Solar pages (ORG-001): admin dashboard and progress timeline. Uses the shared colour variables from styles.css. */
+
+.sa-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.sa-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.sa-stat strong {
+  font-size: 1.7rem;
+  line-height: 1.2;
+}
+
+.sa-stat-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.sa-sizes h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+
+.sa-sizes ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.sa-sizes li {
+  display: grid;
+  grid-template-columns: 110px 1fr 32px;
+  align-items: center;
+  gap: 12px;
+}
+
+.sa-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.sa-bar span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.sa-size-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.sa-filters {
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.sa-search input {
+  min-width: 260px;
+}
+
+.sa-edit h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.data-table td .btn + .btn {
+  margin-left: 6px;
+}
+
+.badge-cancelled {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+@media (max-width: 860px) {
+  .sa-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .sa-stats {
+    grid-template-columns: 1fr;
+  }
+  .sa-search input {
+    min-width: 0;
+  }
+}
+
+/* Customer progress timeline: wider badge column for "Assessment booked" */
+.timeline.solar-timeline li {
+  grid-template-columns: 170px 1fr auto;
+}
+
+@media (max-width: 720px) {
+  .timeline.solar-timeline li {
+    grid-template-columns: 1fr;
+  }
+}

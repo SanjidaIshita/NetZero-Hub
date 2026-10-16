@@ -6,11 +6,21 @@ class SolarRequest(models.Model):
     """A solar installation request: a free site assessment booking plus the quote estimate."""
 
     class Status(models.TextChoices):
-        CONFIRMED = "CONFIRMED", "Confirmed"
-        COMPLETED = "COMPLETED", "Completed"
+        CONFIRMED = "CONFIRMED", "Assessment booked"
+        ASSESSED = "ASSESSED", "Site assessed"
+        COMPLETED = "COMPLETED", "Installed"
         CANCELLED = "CANCELLED", "Cancelled"
 
-    ACTIVE_STATUSES = (Status.CONFIRMED,)
+    # Requests still in progress (count towards the dashboard; the customer can still cancel).
+    ACTIVE_STATUSES = (Status.CONFIRMED, Status.ASSESSED)
+
+    # What staff can move a request to from each status.
+    STAFF_TRANSITIONS = {
+        Status.CONFIRMED: (Status.ASSESSED, Status.CANCELLED),
+        Status.ASSESSED: (Status.COMPLETED, Status.CANCELLED),
+        Status.COMPLETED: (),
+        Status.CANCELLED: (),
+    }
 
     reference = models.CharField(max_length=32, unique=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="solar_requests")
@@ -43,6 +53,9 @@ class SolarRequest(models.Model):
     time_slot = models.CharField(max_length=4)
     notes = models.TextField(blank=True)
 
+    # Latest note from staff (shown to the customer)
+    staff_note = models.TextField(blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -55,3 +68,22 @@ class SolarRequest(models.Model):
     @property
     def is_active(self):
         return self.status in self.ACTIVE_STATUSES
+
+    def allowed_transitions(self):
+        return list(self.STAFF_TRANSITIONS.get(self.status, ()))
+
+
+class SolarRequestEvent(models.Model):
+    """Audit trail: every status change on a solar request, shown as a timeline."""
+
+    request = models.ForeignKey(SolarRequest, on_delete=models.CASCADE, related_name="events")
+    status = models.CharField(max_length=12, choices=SolarRequest.Status.choices)
+    note = models.TextField(blank=True)
+    actor = models.CharField(max_length=150)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    def __str__(self):
+        return f"{self.request.reference}: {self.status}"

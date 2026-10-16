@@ -111,3 +111,52 @@ class SolarApiTests(TestCase):
         self.assertEqual(res.data["solar_count"], 1)
         self.assertEqual(res.data["recycling_count"], 0)
         self.assertEqual(SolarRequest.objects.count(), 1)
+
+
+class SolarAdminTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.customer = User.objects.create_user("priya", "priya@example.com", "S3cure-pass-123", first_name="Priya")
+        self.staff = User.objects.create_user("installer", "staff@example.com", "S3cure-pass-123", is_staff=True,
+                                              first_name="Sam", last_name="Installer")
+        self.client = APIClient()
+        self.client.force_authenticate(self.customer)
+        self.ref = self.client.post("/api/v1/solar/requests/", SolarApiTests.payload(self), format="json").data["reference"]
+        self.admin = APIClient()
+        self.admin.force_authenticate(self.staff)
+
+    def test_customers_cannot_use_admin_api(self):
+        for url in ("/api/v1/solar/admin/summary/", "/api/v1/solar/admin/requests/"):
+            self.assertEqual(self.client.get(url).status_code, 403)
+        res = self.client.post(f"/api/v1/solar/admin/requests/{self.ref}/status/", {"status": "ASSESSED"})
+        self.assertEqual(res.status_code, 403)
+
+    def test_summary_and_list(self):
+        summary = self.admin.get("/api/v1/solar/admin/summary/").data
+        self.assertEqual(summary["total"], 1)
+        self.assertEqual(summary["by_status"]["CONFIRMED"], 1)
+        self.assertEqual(float(summary["pipeline_value"]), 15429.0)
+        rows = self.admin.get("/api/v1/solar/admin/requests/", {"q": "priya"}).data
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["customer_account"]["username"], "priya")
+        self.assertEqual([t["status"] for t in rows[0]["allowed_transitions"]], ["ASSESSED", "CANCELLED"])
+        self.assertEqual(self.admin.get("/api/v1/solar/admin/requests/", {"status": "COMPLETED"}).data, [])
+
+    def test_workflow_and_customer_timeline(self):
+        url = f"/api/v1/solar/admin/requests/{self.ref}/status/"
+        # Can't jump straight to installed
+        self.assertEqual(self.admin.post(url, {"status": "COMPLETED"}).status_code, 409)
+        res = self.admin.post(url, {"status": "ASSESSED", "note": "Roof suits 13 panels facing north."})
+        self.assertEqual(res.data["status"], "ASSESSED")
+        res = self.admin.post(url, {"status": "COMPLETED", "note": "System installed and switched on."})
+        self.assertEqual(res.data["status"], "COMPLETED")
+        self.assertEqual(res.data["allowed_transitions"], [])
+        # Finished requests can't change again
+        self.assertEqual(self.admin.post(url, {"status": "CANCELLED"}).status_code, 409)
+
+        mine = self.client.get(f"/api/v1/solar/requests/{self.ref}/").data
+        self.assertEqual([e["status"] for e in mine["history"]], ["CONFIRMED", "ASSESSED", "COMPLETED"])
+        self.assertEqual(mine["history"][1]["actor"], "Sam Installer")
+        self.assertEqual(mine["staff_note"], "System installed and switched on.")
+        self.assertFalse(mine["can_cancel"])
+        self.assertEqual(self.admin.get("/api/v1/solar/admin/summary/").data["by_status"]["COMPLETED"], 1)

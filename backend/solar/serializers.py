@@ -3,7 +3,7 @@ from datetime import date
 from rest_framework import serializers
 
 from .catalogue import ADD_ONS, PROPERTY_TYPES, ROOF_TYPES, SERVICE_ID, STOREYS, SYSTEM_SIZES, TIME_SLOTS, by_id
-from .models import SolarRequest
+from .models import SolarRequest, SolarRequestEvent
 from .services import price_breakdown
 
 
@@ -43,6 +43,14 @@ class SolarRequestCreateSerializer(serializers.Serializer):
         return list(dict.fromkeys(value))  # remove duplicates, keep order
 
 
+class SolarRequestEventSerializer(serializers.ModelSerializer):
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = SolarRequestEvent
+        fields = ["status", "status_label", "note", "actor", "created_at"]
+
+
 class SolarRequestSerializer(serializers.ModelSerializer):
     """The ORG-001 service output."""
 
@@ -55,6 +63,7 @@ class SolarRequestSerializer(serializers.ModelSerializer):
     address = serializers.SerializerMethodField()
     price_lines = serializers.SerializerMethodField()
     can_cancel = serializers.SerializerMethodField()
+    history = SolarRequestEventSerializer(source="events", many=True, read_only=True)
 
     class Meta:
         model = SolarRequest
@@ -62,7 +71,7 @@ class SolarRequestSerializer(serializers.ModelSerializer):
             "service_id", "reference", "status", "status_label", "created_at", "updated_at",
             "customer_name", "customer_email", "customer_phone", "address", "installer",
             "property", "quarterly_usage_kwh", "system", "add_ons", "add_on_names",
-            "assessment", "notes", "price_lines", "total_price", "can_cancel",
+            "assessment", "notes", "staff_note", "price_lines", "total_price", "can_cancel", "history",
         ]
 
     def get_service_id(self, obj) -> str:
@@ -94,3 +103,24 @@ class SolarRequestSerializer(serializers.ModelSerializer):
 
     def get_can_cancel(self, obj) -> bool:
         return obj.is_active
+
+
+class SolarAdminRequestSerializer(SolarRequestSerializer):
+    """Staff view of a request: adds the customer account and the actions staff can take."""
+
+    customer_account = serializers.SerializerMethodField()
+    allowed_transitions = serializers.SerializerMethodField()
+
+    class Meta(SolarRequestSerializer.Meta):
+        fields = SolarRequestSerializer.Meta.fields + ["customer_account", "allowed_transitions"]
+
+    def get_customer_account(self, obj) -> dict:
+        return {"user_id": obj.user_id, "username": obj.user.username}
+
+    def get_allowed_transitions(self, obj) -> list:
+        return [{"status": s, "label": SolarRequest.Status(s).label} for s in obj.allowed_transitions()]
+
+
+class StatusUpdateSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=[c[0] for c in SolarRequest.Status.choices])
+    note = serializers.CharField(max_length=1000, required=False, allow_blank=True, default="")

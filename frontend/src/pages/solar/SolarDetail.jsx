@@ -77,6 +77,30 @@ export default function SolarDetail() {
         )}
       </section>
 
+      {r.staff_note && r.status !== "CONFIRMED" && (
+        <p className={`alert ${r.status === "CANCELLED" ? "alert-warn" : "alert-ok"}`}>
+          <strong>Latest update:</strong> {r.staff_note}
+        </p>
+      )}
+
+      {r.history?.length > 0 && (
+        <section className="card">
+          <h2>Progress</h2>
+          <ol className="timeline solar-timeline">
+            {r.history.map((ev, i) => (
+              <li key={i}>
+                <SolarStatus status={ev.status} />
+                <span>
+                  {ev.note || ev.status_label}
+                  <span className="muted small"> · {ev.actor}</span>
+                </span>
+                <time className="muted small">{formatDateTime(ev.created_at)}</time>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
       <section className="card">
         <h2>Your request</h2>
         <dl className="summary">

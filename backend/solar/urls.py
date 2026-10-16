@@ -12,4 +12,8 @@ urlpatterns = [
     path("postcode/", views.PostcodeCheckView.as_view(), name="solar-postcode"),
     path("recommend/", views.RecommendView.as_view(), name="solar-recommend"),
     path("availability/", views.AvailabilityView.as_view(), name="solar-availability"),
+    # Admin dashboard (staff only)
+    path("admin/summary/", views.AdminSummaryView.as_view(), name="solar-admin-summary"),
+    path("admin/requests/", views.AdminRequestListView.as_view(), name="solar-admin-requests"),
+    path("admin/requests/<str:reference>/status/", views.AdminStatusUpdateView.as_view(), name="solar-admin-status"),
 ] + router.urls

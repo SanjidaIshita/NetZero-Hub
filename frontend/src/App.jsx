@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import SolarRequests from "./pages/solar/SolarRequests.jsx";
 import SolarNew from "./pages/solar/SolarNew.jsx";
 import SolarDetail from "./pages/solar/SolarDetail.jsx";
+import SolarAdmin from "./pages/solar/SolarAdmin.jsx";
 function RequireAuth({ children, staff = false }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -60,9 +61,10 @@ function Header() {
   {user && (
     <>
       <NavLink to="/bookings">My bookings</NavLink>
-      <NavLink to="/solar">Solar</NavLink>
+      <NavLink to="/solar" end>Solar</NavLink>
       {/* <NavLink to="/book">Book a collection</NavLink> */}
       {user.is_staff && <NavLink to="/provider">Provider console</NavLink>}
+      {user.is_staff && <NavLink to="/solar/admin">Solar admin</NavLink>}
       <button className="link-button" onClick={signOut}>
         Sign out
       </button>
@@ -147,6 +149,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <SolarNew />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/solar/admin"
+            element={
+              <RequireAuth staff>
+                <SolarAdmin />
               </RequireAuth>
             }
           />
