@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../api.js';
 
 const Icon = ({ children }) => (
   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
@@ -72,8 +73,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Adjust this URL to match your Python backend route.
-    fetch('/api/dashboard', { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
+    // GET /api/v1/dashboard/ (sends the signed-in user's token)
+    api('/dashboard/')
       .then((data) =>
         setCounts({
           recycling: data.recycling_count ?? 0,
