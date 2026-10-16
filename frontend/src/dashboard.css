@@ -1,0 +1,145 @@
+body { overflow-x: hidden; }
+
+.dash {
+  --green: #17704a;
+  --green-dark: #0e4a31;
+  --green-tint: #e6f0ea;
+  --bg: #f3f5f0;
+  --surface: #ffffff;
+  --text: #16231c;
+  --muted: #5f6b63;
+  --border: #e3e7e1;
+  /* Same header gap fix used on the home page */
+  --page-gap: 28px;
+
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-top: calc(-1 * var(--page-gap));
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash h1, .dash h2, .dash p { margin: 0; }
+.dash a:focus-visible { outline: 3px solid #8fc9aa; outline-offset: 3px; }
+
+.dash-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 72px 24px 64px;
+  text-align: center;
+}
+.dash-main h1 { font-size: clamp(1.9rem, 4vw, 2.4rem); letter-spacing: -0.01em; color: var(--green-dark); }
+.dash .dash-sub {
+  max-width: 520px;
+  margin: 12px auto 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.dash .dash-note {
+  margin-top: 28px;
+  color: var(--muted);
+  font-size: 0.93rem;
+}
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  margin-top: 44px;
+  text-align: left;
+}
+
+.dash-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(22, 35, 28, 0.06);
+}
+.dash-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  color: #fff;
+  margin-bottom: 6px;
+}
+.dash-icon--green { background: #17704a; }
+.dash-icon--blue { background: #2f6fb3; }
+.dash-icon--amber { background: #b86e00; }
+
+.dash-card__title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dash-card__title h2 { font-size: 1.05rem; }
+.dash-count {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--green-tint);
+  color: var(--green-dark);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.dash-card > p { color: var(--muted); line-height: 1.6; font-size: 0.95rem; }
+
+.dash-actions { display: flex; gap: 10px; margin-top: auto; padding-top: 14px; }
+.btn {
+  flex: 1;
+  text-align: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.dash .btn--primary {
+  background: var(--green);
+  color: #fff;
+  border: 1.5px solid var(--green);
+}
+.dash .btn--primary:hover,
+.dash .btn--primary:focus-visible {
+  background: var(--green-tint);
+  color: var(--green-dark);
+  border-color: var(--green);
+}
+
+.dash .btn--secondary {
+  background: #fff;
+  color: var(--green);
+  border: 1.5px solid var(--border);
+}
+.dash .btn--secondary:hover,
+.dash .btn--secondary:focus-visible {
+  background: var(--green-tint);
+  color: var(--green-dark);
+  border-color: var(--green);
+}
+
+.dash-footer {
+  background: var(--green-tint);
+  padding: 22px 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-main { padding-top: 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn { transition: none; }
+}
