@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { api } from "../../api.js";
 import { formatDate, formatDateTime, formatWindow } from "../../format.js";
 import { SolarStatus, aud } from "./common.jsx";
+import SolarPayment from "./SolarPayment.jsx";
 
 export default function SolarDetail() {
   const { reference } = useParams();
@@ -10,7 +11,9 @@ export default function SolarDetail() {
   const justBooked = location.state?.justBooked;
   const [r, setR] = useState(null);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState(justBooked ? "Your site assessment is booked. We've emailed the details." : "");
+  const [message, setMessage] = useState(
+    justBooked ? "Your site assessment is booked. Pay a 10% deposit below to secure your installation." : ""
+  );
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -23,7 +26,11 @@ export default function SolarDetail() {
     setError("");
     try {
       setR(await api(`/solar/requests/${reference}/cancel/`, { method: "POST" }));
-      setMessage("Your solar request has been cancelled.");
+      setMessage(
+        Number(r.payment.amount_paid) > 0
+          ? `Your solar request has been cancelled and ${aud(r.payment.amount_paid)} has been refunded.`
+          : "Your solar request has been cancelled."
+      );
       setConfirmCancel(false);
     } catch (err) {
       setError(err.message);
@@ -82,6 +89,15 @@ export default function SolarDetail() {
           <strong>Latest update:</strong> {r.staff_note}
         </p>
       )}
+
+      <SolarPayment
+        request={r}
+        onPaid={(updated, msg) => {
+          setR(updated);
+          setMessage(msg);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+      />
 
       {r.history?.length > 0 && (
         <section className="card">

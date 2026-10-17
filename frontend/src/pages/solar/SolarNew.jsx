@@ -374,6 +374,8 @@ export default function SolarNew() {
             </table>
             <p className="hint">
               The installer confirms the final price after the assessment. Government STC rebates may reduce it.
+              The site assessment is free. After booking you can pay a 10% deposit ({aud(Math.round(total * 0.1))})
+              or the full amount, and you get a full refund if you cancel.
             </p>
             <label className="check">
               <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
