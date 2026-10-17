@@ -60,7 +60,6 @@ function Header() {
   {user && (
     <>
       <NavLink to="/bookings">My bookings</NavLink>
-      <NavLink to="/solar" end>Solar</NavLink>
       {/* <NavLink to="/book">Book a collection</NavLink> */}
       {user.is_staff && <NavLink to="/provider">Provider console</NavLink>}
       <button className="link-button" onClick={signOut}>

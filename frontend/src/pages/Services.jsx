@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useAuth } from '../auth.jsx';
 
 const Icon = ({ children }) => (
   <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
@@ -55,10 +56,13 @@ const services = [
     audience: 'Property owners',
     text: 'Request a solar installation for your property, from assessment to completion.',
     points: ['Request a site assessment', 'Compare and accept a quote', 'Schedule your installation'],
+    to: '/solar',
+    action: 'Open solar installations',
   },
 ];
 
 export default function Services() {
+  const { user } = useAuth();
   return (
     <main className="home">
       <section className="hero hero--compact">
@@ -80,6 +84,15 @@ export default function Services() {
                 <ul>
                   {s.points.map((p) => <li key={p}>{p}</li>)}
                 </ul>
+                {s.to && (
+                  <Link
+                    to={user ? s.to : '/login'}
+                    className="btn btn--primary"
+                    style={{ marginTop: 'auto' }}
+                  >
+                    {user ? s.action : 'Sign in to get started'}
+                  </Link>
+                )}
               </div>
             ))}
           </div>
