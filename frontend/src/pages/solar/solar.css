@@ -15,3 +15,26 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Payment section */
+.pay-form {
+  margin-top: 16px;
+}
+
+.pay-form .choice-grid {
+  margin-bottom: 16px;
+}
+
+.demo-note {
+  margin: 0 0 16px;
+}
+
+.receipts td:last-child {
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.pay-form + h3,
+.card > .alert + h3 {
+  margin-top: 24px;
+}

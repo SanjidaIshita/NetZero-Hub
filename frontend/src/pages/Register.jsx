@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { fieldErrors } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import Field from "../components/Field.jsx";
@@ -15,12 +15,15 @@ const FIELDS = [
 export default function Register() {
   const { user, register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // After signing up, open the service the user chose (e.g. /solar), otherwise the dashboard.
+  const from = location.state?.from || "/dashboard";
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", username: "", password: "" });
   const [errors, setErrors] = useState({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={from} replace />;
 
   async function submit(e) {
     e.preventDefault();
@@ -85,7 +88,7 @@ export default function Register() {
           {busy ? "Creating account…" : "Create account"}
         </button>
         <p className="muted small">
-          Already registered? <Link to="/login">Sign in</Link>
+          Already registered? <Link to="/login" state={{ from: location.state?.from }}>Sign in</Link>
         </p>
       </form>
     </div>

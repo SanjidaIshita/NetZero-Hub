@@ -1067,3 +1067,33 @@ select:focus {
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* ---------- My bookings (all services) ---------- */
+.my-bookings-section {
+  margin-bottom: 32px;
+}
+
+.my-bookings-section .row-between {
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.my-bookings-section h2 {
+  margin: 0;
+}
+
+.actions-inline {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.actions-inline .btn {
+  white-space: nowrap;
+  width: auto;
+}
+
+.my-bookings-empty {
+  margin: 4px 0 0;
+}

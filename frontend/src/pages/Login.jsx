@@ -7,11 +7,13 @@ export default function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  // Go back to the page or service the user was trying to open (e.g. /solar), otherwise the dashboard.
+  const from = location.state?.from || "/dashboard";
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to={from} replace />;
 
   async function submit(e) {
     e.preventDefault();
@@ -19,7 +21,7 @@ export default function Login() {
     setError("");
     try {
       await login(form.username, form.password);
-      navigate("/dashboard", { replace: true });
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -61,7 +63,7 @@ export default function Login() {
           {busy ? "Signing in…" : "Sign in"}
         </button>
         <p className="muted small">
-          New to NetZero Hub? <Link to="/register">Create an account</Link>
+          New to NetZero Hub? <Link to="/register" state={{ from: location.state?.from }}>Create an account</Link>
         </p>
       </form>
     </div>

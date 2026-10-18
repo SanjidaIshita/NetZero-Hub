@@ -160,3 +160,88 @@ class SolarAdminTests(TestCase):
         self.assertEqual(mine["staff_note"], "System installed and switched on.")
         self.assertFalse(mine["can_cancel"])
         self.assertEqual(self.admin.get("/api/v1/solar/admin/summary/").data["by_status"]["COMPLETED"], 1)
+
+
+class SolarPaymentTests(TestCase):
+    """Demo card payments: 10% deposit or full amount, then the balance; refunds on cancellation."""
+
+    CARD = {"cardholder_name": "Priya Shah", "card_number": "4242 4242 4242 4242", "expiry": "12/30", "cvc": "123"}
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("priya", "priya@example.com", "S3cure-pass-123")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.ref = self.client.post("/api/v1/solar/requests/", SolarApiTests.payload(self), format="json").data["reference"]
+        self.url = f"/api/v1/solar/requests/{self.ref}/pay/"
+
+    def pay(self, option, **card):
+        return self.client.post(self.url, {"option": option, **self.CARD, **card}, format="json")
+
+    def test_new_request_is_unpaid_with_two_options(self):
+        p = self.client.get(f"/api/v1/solar/requests/{self.ref}/").data["payment"]
+        self.assertEqual(p["status"], "UNPAID")
+        self.assertEqual(p["balance_due"], "15429.00")
+        self.assertEqual([(o["id"], o["amount"]) for o in p["options"]], [("deposit", "1543.00"), ("full", "15429.00")])
+
+    def test_deposit_then_balance(self):
+        res = self.pay("deposit")
+        self.assertEqual(res.status_code, 200, res.data)
+        p = res.data["payment"]
+        self.assertEqual((p["status"], p["amount_paid"], p["balance_due"]), ("DEPOSIT", "1543.00", "13886.00"))
+        self.assertEqual([o["id"] for o in p["options"]], ["balance"])
+        self.assertEqual(p["receipts"][0]["card_last4"], "4242")
+        self.assertEqual(p["receipts"][0]["card_brand"], "Visa")
+        self.assertIn("Deposit of $1,543.00 paid", res.data["history"][-1]["note"])
+        # Can't pay the deposit twice
+        self.assertEqual(self.pay("deposit").status_code, 409)
+
+        p = self.pay("balance").data["payment"]
+        self.assertEqual((p["status"], p["balance_due"], p["options"]), ("PAID", "0.00", []))
+        self.assertEqual(self.pay("balance").status_code, 409)
+
+    def test_pay_in_full(self):
+        p = self.pay("full", card_number="5555 5555 5555 4444").data["payment"]
+        self.assertEqual((p["status"], p["amount_paid"]), ("PAID", "15429.00"))
+        self.assertEqual(p["receipts"][0]["card_brand"], "Mastercard")
+
+    def test_card_checks(self):
+        self.assertIn("card_number", self.pay("full", card_number="4242 4242 4242 4241").data)
+        self.assertIn("expiry", self.pay("full", expiry="01/20").data)
+        self.assertIn("expiry", self.pay("full", expiry="13/30").data)
+        self.assertIn("cvc", self.pay("full", cvc="12").data)
+        declined = self.pay("full", card_number="4000 0000 0000 0002")
+        self.assertEqual(declined.status_code, 402)
+        self.assertEqual(declined.data["code"], "payment_declined")
+        self.assertEqual(SolarRequest.objects.get().payment_status, "UNPAID")
+
+    def test_card_details_are_not_stored(self):
+        self.pay("full")
+        payment = SolarRequest.objects.get().payments.get()
+        stored = " ".join(str(getattr(payment, f.attname)) for f in payment._meta.fields)
+        self.assertNotIn("4242424242424242", stored)
+        self.assertNotIn("123", stored.replace(payment.receipt_number, ""))
+
+    def test_cancel_refunds_payment(self):
+        self.pay("deposit")
+        res = self.client.post(f"/api/v1/solar/requests/{self.ref}/cancel/")
+        p = res.data["payment"]
+        self.assertEqual((p["status"], p["amount_paid"], p["options"]), ("REFUNDED", "0.00", []))
+        self.assertEqual(p["receipts"][-1]["kind"], "REFUND")
+        self.assertIn("Refund of $1,543.00", res.data["history"][-1]["note"])
+        self.assertEqual(self.pay("balance").status_code, 409)
+
+    def test_staff_cancel_refunds_and_summary(self):
+        staff = get_user_model().objects.create_user("installer", "s@example.com", "S3cure-pass-123", is_staff=True)
+        admin = APIClient()
+        admin.force_authenticate(staff)
+        self.pay("full")
+        self.assertEqual(float(admin.get("/api/v1/solar/admin/summary/").data["payments_received"]), 15429.0)
+        res = admin.post(f"/api/v1/solar/admin/requests/{self.ref}/status/", {"status": "CANCELLED", "note": "Roof unsuitable."})
+        self.assertEqual(res.data["payment"]["status"], "REFUNDED")
+        self.assertEqual(float(admin.get("/api/v1/solar/admin/summary/").data["payments_received"]), 0.0)
+
+    def test_other_users_cannot_pay(self):
+        other = APIClient()
+        other.force_authenticate(get_user_model().objects.create_user("sam", "sam@example.com", "S3cure-pass-123"))
+        res = other.post(self.url, {"option": "full", **self.CARD}, format="json")
+        self.assertEqual(res.status_code, 404)

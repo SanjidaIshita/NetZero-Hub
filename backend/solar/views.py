@@ -16,6 +16,7 @@ from . import services
 from .catalogue import ADD_ONS, PROPERTY_TYPES, ROOF_TYPES, STOREYS, SUBURBS, SYSTEM_SIZES, TIME_SLOTS, by_id, find_installer
 from .models import SolarRequest, SolarRequestEvent
 from .serializers import (
+    PaymentSerializer,
     SolarAdminRequestSerializer,
     SolarRequestCreateSerializer,
     SolarRequestSerializer,
@@ -26,6 +27,19 @@ from .serializers import (
 class PreconditionFailed(ServiceError):
     status_code = 400
     code = "precondition_failed"
+
+
+# The process activity recorded when staff move a request to each status
+STAFF_ACTIVITY = {
+    SolarRequest.Status.ASSESSED: SolarRequestEvent.Activity.ASSESS,
+    SolarRequest.Status.COMPLETED: SolarRequestEvent.Activity.INSTALL,
+    SolarRequest.Status.CANCELLED: SolarRequestEvent.Activity.CANCEL,
+}
+
+
+class PaymentDeclined(ServiceError):
+    status_code = 402
+    code = "payment_declined"
 
 
 class OptionsView(APIView):
@@ -149,7 +163,7 @@ class SolarRequestViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
                 notes=data.get("notes", "").strip(),
             )
             SolarRequestEvent.objects.create(
-                request=obj, status=obj.status, actor="NetZero Hub",
+                request=obj, activity=SolarRequestEvent.Activity.BOOK, status=obj.status, actor="NetZero Hub",
                 note=f"Site assessment booked with {obj.installer}.",
             )
         return Response(SolarRequestSerializer(obj).data, status=status.HTTP_201_CREATED)
@@ -157,13 +171,43 @@ class SolarRequestViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
     @extend_schema(request=None, responses=SolarRequestSerializer)
     @action(detail=True, methods=["post"])
     def cancel(self, request, reference=None):
-        obj = self.get_object()
-        if not obj.is_active:
-            raise ChangeNotAllowed(f"This request is already {obj.get_status_display().lower()}.")
-        obj.status = SolarRequest.Status.CANCELLED
-        obj.save(update_fields=["status", "updated_at"])
-        SolarRequestEvent.objects.create(request=obj, status=obj.status, actor=obj.customer_name,
-                                         note="Cancelled by the customer.")
+        with transaction.atomic():
+            obj = self.get_queryset().select_for_update().get(pk=self.get_object().pk)
+            if not obj.is_active:
+                raise ChangeNotAllowed(f"This request is already {obj.get_status_display().lower()}.")
+            obj.status = SolarRequest.Status.CANCELLED
+            obj.save(update_fields=["status", "updated_at"])
+            SolarRequestEvent.objects.create(request=obj, activity=SolarRequestEvent.Activity.CANCEL,
+                                             status=obj.status, actor=obj.customer_name,
+                                             note="Cancelled by the customer.")
+            services.refund_all(obj)
+        return Response(SolarRequestSerializer(obj).data)
+
+    @extend_schema(request=PaymentSerializer, responses=SolarRequestSerializer)
+    @action(detail=True, methods=["post"])
+    def pay(self, request, reference=None):
+        """Pay the 10% deposit, the full amount, or the remaining balance (demo card payment)."""
+        inp = PaymentSerializer(data=request.data)
+        inp.is_valid(raise_exception=True)
+        data = inp.validated_data
+        errors = services.card_errors(data["card_number"], data["expiry"].strip(), data["cvc"].strip())
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+        if data["card_number"] == services.DECLINED_TEST_CARD:
+            raise PaymentDeclined("Your card was declined. Please try a different card.")
+
+        with transaction.atomic():
+            obj = self.get_queryset().select_for_update().get(pk=self.get_object().pk)
+            if obj.status == SolarRequest.Status.CANCELLED:
+                raise ChangeNotAllowed("This request has been cancelled, so there's nothing to pay.")
+            option = next((o for o in services.payment_options(obj) if o["id"] == data["option"]), None)
+            if not option:
+                raise ChangeNotAllowed("Nothing is due for that option. Refresh the page to see what's owing.")
+            services.record_payment(
+                obj, kind=data["option"].upper(), amount=option["amount"],
+                brand=services.card_brand(data["card_number"]), last4=data["card_number"][-4:],
+                actor=obj.customer_name,
+            )
         return Response(SolarRequestSerializer(obj).data)
 
 
@@ -195,6 +239,10 @@ class AdminSummaryView(APIView):
                 status=SolarRequest.Status.CONFIRMED, assessment_date__gte=today, assessment_date__lt=week_end).count(),
             "pipeline_value": active.aggregate(v=Sum("total_price"))["v"] or 0,
             "installed_value": qs.filter(status=SolarRequest.Status.COMPLETED).aggregate(v=Sum("total_price"))["v"] or 0,
+            "payments_received": qs.aggregate(v=Sum("amount_paid"))["v"] or 0,
+            "by_payment_status": {
+                s: qs.filter(payment_status=s).count() for s, _ in SolarRequest.PaymentStatus.choices
+            },
             "by_system_size": [
                 {"id": s["id"], "name": s["name"], "count": by_size.get(s["id"], 0)} for s in SYSTEM_SIZES
             ],
@@ -253,12 +301,15 @@ class AdminStatusUpdateView(APIView):
                 f"'{SolarRequest.Status(new_status).label}'."
             )
         with transaction.atomic():
+            obj = SolarRequest.objects.select_for_update().get(pk=obj.pk)
             obj.status = new_status
             if note:
                 obj.staff_note = note
             obj.save(update_fields=["status", "staff_note", "updated_at"])
             SolarRequestEvent.objects.create(
-                request=obj, status=new_status, note=note,
+                request=obj, activity=STAFF_ACTIVITY[new_status], status=new_status, note=note,
                 actor=request.user.get_full_name() or request.user.username,
             )
+            if new_status == SolarRequest.Status.CANCELLED:
+                services.refund_all(obj)
         return Response(SolarAdminRequestSerializer(obj).data)

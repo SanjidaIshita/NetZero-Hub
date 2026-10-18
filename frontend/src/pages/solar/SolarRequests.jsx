@@ -4,6 +4,7 @@ import { api } from "../../api.js";
 import { useAuth } from "../../auth.jsx";
 import { formatShortDate, formatWindow } from "../../format.js";
 import { SolarStatus, aud } from "./common.jsx";
+import { PaymentStatus } from "./SolarPayment.jsx";
 
 export default function SolarRequests() {
   const { user } = useAuth();
@@ -82,6 +83,7 @@ export default function SolarRequests() {
               </div>
               <div className="booking-meta">
                 <SolarStatus status={r.status} />
+                <PaymentStatus payment={r.payment} />
                 <code className="ref">{r.reference}</code>
               </div>
             </Link>

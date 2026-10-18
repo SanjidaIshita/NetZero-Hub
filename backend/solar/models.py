@@ -2,8 +2,17 @@ from django.conf import settings
 from django.db import models
 
 
+class PaymentStatus(models.TextChoices):
+    UNPAID = "UNPAID", "Not paid"
+    DEPOSIT_PAID = "DEPOSIT", "Deposit paid"
+    PAID = "PAID", "Paid in full"
+    REFUNDED = "REFUNDED", "Refunded"
+
+
 class SolarRequest(models.Model):
     """A solar installation request: a free site assessment booking plus the quote estimate."""
+
+    PaymentStatus = PaymentStatus
 
     class Status(models.TextChoices):
         CONFIRMED = "CONFIRMED", "Assessment booked"
@@ -56,6 +65,11 @@ class SolarRequest(models.Model):
     # Latest note from staff (shown to the customer)
     staff_note = models.TextField(blank=True)
 
+    # Payment (demo card payments: see services.take_payment)
+    payment_status = models.CharField(max_length=12, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID,
+                                      db_index=True)
+    amount_paid = models.DecimalField(max_digits=9, decimal_places=2, default=0)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -74,9 +88,20 @@ class SolarRequest(models.Model):
 
 
 class SolarRequestEvent(models.Model):
-    """Audit trail: every status change on a solar request, shown as a timeline."""
+    """Audit trail: every step on a solar request, shown to the customer as a timeline."""
+
+    class Activity(models.TextChoices):
+        BOOK = "Book site assessment"
+        PAY_DEPOSIT = "Pay deposit"
+        PAY_FULL = "Pay in full"
+        PAY_BALANCE = "Pay balance"
+        ASSESS = "Complete site assessment"
+        INSTALL = "Install system"
+        CANCEL = "Cancel request"
+        REFUND = "Issue refund"
 
     request = models.ForeignKey(SolarRequest, on_delete=models.CASCADE, related_name="events")
+    activity = models.CharField(max_length=40, choices=Activity.choices, blank=True)
     status = models.CharField(max_length=12, choices=SolarRequest.Status.choices)
     note = models.TextField(blank=True)
     actor = models.CharField(max_length=150)
@@ -87,3 +112,27 @@ class SolarRequestEvent(models.Model):
 
     def __str__(self):
         return f"{self.request.reference}: {self.status}"
+
+
+class SolarPayment(models.Model):
+    """One payment or refund on a solar request. Only the card brand and last 4 digits are kept."""
+
+    class Kind(models.TextChoices):
+        DEPOSIT = "DEPOSIT", "Deposit"
+        FULL = "FULL", "Full payment"
+        BALANCE = "BALANCE", "Balance payment"
+        REFUND = "REFUND", "Refund"
+
+    request = models.ForeignKey(SolarRequest, on_delete=models.CASCADE, related_name="payments")
+    kind = models.CharField(max_length=8, choices=Kind.choices)
+    amount = models.DecimalField(max_digits=9, decimal_places=2)
+    card_brand = models.CharField(max_length=20)
+    card_last4 = models.CharField(max_length=4)
+    receipt_number = models.CharField(max_length=32, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    def __str__(self):
+        return f"{self.receipt_number}: {self.get_kind_display()} ${self.amount}"

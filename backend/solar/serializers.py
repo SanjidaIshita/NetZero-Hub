@@ -3,8 +3,8 @@ from datetime import date
 from rest_framework import serializers
 
 from .catalogue import ADD_ONS, PROPERTY_TYPES, ROOF_TYPES, SERVICE_ID, STOREYS, SYSTEM_SIZES, TIME_SLOTS, by_id
-from .models import SolarRequest, SolarRequestEvent
-from .services import price_breakdown
+from .models import SolarPayment, SolarRequest, SolarRequestEvent
+from .services import balance_due, deposit_amount, payment_options, price_breakdown
 
 
 def _ids(items):
@@ -48,7 +48,15 @@ class SolarRequestEventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SolarRequestEvent
-        fields = ["status", "status_label", "note", "actor", "created_at"]
+        fields = ["activity", "status", "status_label", "note", "actor", "created_at"]
+
+
+class SolarPaymentSerializer(serializers.ModelSerializer):
+    kind_label = serializers.CharField(source="get_kind_display", read_only=True)
+
+    class Meta:
+        model = SolarPayment
+        fields = ["receipt_number", "kind", "kind_label", "amount", "card_brand", "card_last4", "created_at"]
 
 
 class SolarRequestSerializer(serializers.ModelSerializer):
@@ -63,6 +71,7 @@ class SolarRequestSerializer(serializers.ModelSerializer):
     address = serializers.SerializerMethodField()
     price_lines = serializers.SerializerMethodField()
     can_cancel = serializers.SerializerMethodField()
+    payment = serializers.SerializerMethodField()
     history = SolarRequestEventSerializer(source="events", many=True, read_only=True)
 
     class Meta:
@@ -71,7 +80,7 @@ class SolarRequestSerializer(serializers.ModelSerializer):
             "service_id", "reference", "status", "status_label", "created_at", "updated_at",
             "customer_name", "customer_email", "customer_phone", "address", "installer",
             "property", "quarterly_usage_kwh", "system", "add_ons", "add_on_names",
-            "assessment", "notes", "staff_note", "price_lines", "total_price", "can_cancel", "history",
+            "assessment", "notes", "staff_note", "price_lines", "total_price", "payment", "can_cancel", "history",
         ]
 
     def get_service_id(self, obj) -> str:
@@ -104,6 +113,17 @@ class SolarRequestSerializer(serializers.ModelSerializer):
     def get_can_cancel(self, obj) -> bool:
         return obj.is_active
 
+    def get_payment(self, obj) -> dict:
+        return {
+            "status": obj.payment_status,
+            "status_label": obj.get_payment_status_display(),
+            "amount_paid": f"{obj.amount_paid:.2f}",
+            "balance_due": f"{balance_due(obj):.2f}",
+            "deposit_amount": f"{deposit_amount(obj):.2f}",
+            "options": [{**o, "amount": f"{o['amount']:.2f}"} for o in payment_options(obj)],
+            "receipts": SolarPaymentSerializer(obj.payments.all(), many=True).data,
+        }
+
 
 class SolarAdminRequestSerializer(SolarRequestSerializer):
     """Staff view of a request: adds the customer account and the actions staff can take."""
@@ -124,3 +144,16 @@ class SolarAdminRequestSerializer(SolarRequestSerializer):
 class StatusUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=[c[0] for c in SolarRequest.Status.choices])
     note = serializers.CharField(max_length=1000, required=False, allow_blank=True, default="")
+
+
+class PaymentSerializer(serializers.Serializer):
+    """Demo card payment. The card number and security code are checked, then thrown away."""
+
+    option = serializers.ChoiceField(choices=["deposit", "full", "balance"])
+    cardholder_name = serializers.CharField(min_length=2, max_length=100)
+    card_number = serializers.CharField(max_length=30, help_text="Test card: 4242 4242 4242 4242")
+    expiry = serializers.CharField(max_length=7, help_text="MM/YY")
+    cvc = serializers.CharField(max_length=4, write_only=True)
+
+    def validate_card_number(self, value):
+        return value.replace(" ", "").replace("-", "")
