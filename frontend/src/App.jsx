@@ -9,6 +9,7 @@ import ProviderConsole from "./pages/ProviderConsole.jsx";
 import Home from "./pages/Home.jsx";
 import Services from "./pages/Services.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import MyBookings from "./pages/MyBookings.jsx";
 import SolarRequests from "./pages/solar/SolarRequests.jsx";
 import SolarNew from "./pages/solar/SolarNew.jsx";
 import SolarDetail from "./pages/solar/SolarDetail.jsx";
@@ -98,6 +99,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <Bookings />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/bookings"
+            element={
+              <RequireAuth>
+                <MyBookings />
               </RequireAuth>
             }
           />
