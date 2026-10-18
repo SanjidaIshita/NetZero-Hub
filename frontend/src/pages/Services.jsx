@@ -42,6 +42,8 @@ const services = [
     audience: 'Households',
     text: 'Book a free household recycling collection online and track your booking.',
     points: ['Choose a date and materials', 'Confirmed with your collection provider', 'Manage or cancel bookings'],
+    to: '/',
+    action: 'Open Recycling Collection',
   },
   {
     icon: 'licence',
@@ -49,6 +51,8 @@ const services = [
     audience: 'Businesses, operators and the public',
     text: 'Apply for and manage an environment protection licence, and report pollution incidents for investigation.',
     points: ['Apply for and manage a licence', 'Report a pollution incident', 'Follow investigation updates'],
+    to: '/',
+    action: 'Open Recycling Collection',
   },
   {
     icon: 'solar',
@@ -74,28 +78,41 @@ export default function Services() {
 
       <div className="wrap">
         <section className="block block--first">
-          <div className="service-grid">
-            {services.map((s) => (
-              <div key={s.title} className="service">
-                <span className="icon-tile">{icons[s.icon]}</span>
-                <h3>{s.title}</h3>
-                <p className="service__for">For: {s.audience}</p>
-                <p>{s.text}</p>
-                <ul>
-                  {s.points.map((p) => <li key={p}>{p}</li>)}
-                </ul>
-                {s.to && (
-                  <Link
-                    to={user ? s.to : '/login'}
-                    className="btn btn--primary"
-                    style={{ marginTop: 'auto' }}
-                  >
-                    {user ? s.action : 'Sign in to get started'}
-                  </Link>
-                )}
-              </div>
-            ))}
-          </div>
+         <div className="service-grid">
+  {services.map((s) => (
+    <div
+      key={s.title}
+      className="service"
+      style={{ display: 'flex', flexDirection: 'column' }}
+    >
+      <span className="icon-tile">{icons[s.icon]}</span>
+      <h3>{s.title}</h3>
+      <p className="service__for">For: {s.audience}</p>
+      <p>{s.text}</p>
+      <ul style={{ flexGrow: 1 }}>
+        {s.points.map((p) => <li key={p}>{p}</li>)}
+      </ul>
+      {s.to && (
+        <Link
+          to={user ? s.to : '/login'}
+          className="btn btn--primary"
+          style={{
+            marginTop: 'auto',
+            flex: '0 0 auto',
+            alignSelf: 'stretch',
+            height: 44,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxSizing: 'border-box',
+          }}
+        >
+          {user ? s.action : 'Sign in to get started'}
+        </Link>
+      )}
+    </div>
+  ))}
+</div>
           <p className="note">
             If pollution poses immediate danger to life or safety, call emergency services on 000.
           </p>
@@ -110,7 +127,12 @@ export default function Services() {
               installation, you need to be a member of the NetZero Hub portal.
             </p>
           </div>
-          <Link to="/login" className="btn btn--primary">Sign in</Link>
+            <Link
+                    to={user ? '/dashboard' : '/login'}
+                    className="btn btn--primary"
+                  >
+                    {user ? 'Go to my Services' : 'Sign in'}
+                  </Link>
         </section>
 
         {/* <footer className="home-footer">

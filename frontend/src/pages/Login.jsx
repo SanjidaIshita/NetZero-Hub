@@ -30,10 +30,9 @@ export default function Login() {
   return (
     <div className="auth-layout">
       <section className="auth-intro">
-        <h1>Book a recycling collection online</h1>
+        <h1>Welcome to NetZero Hub</h1>
         <p>
-          Pick a date that suits you, tell us what you're recycling, and we'll confirm with your collection
-          provider straight away. Standard recycling collections are free.
+          Sign in to access NetZero Hub services and help build a cleaner, greener community
         </p>
       </section>
       <form className="card auth-card" onSubmit={submit}>

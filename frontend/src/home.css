@@ -35,11 +35,11 @@ body { overflow-x: hidden; }
   text-decoration: none;
   transition: background 0.15s, transform 0.15s;
 }
-.btn--primary { background: var(--green); color: #fff; }
-.btn--primary:hover { background: var(--green-dark); }
-.btn--light { background: #fff; color: var(--green-dark); }
-.btn--light:hover { background: var(--green-tint); }
-.btn--ghost { color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.55); }
+.home .btn--primary { background: var(--green); color: #fff; }
+.home .btn--primary:hover { background: var(--green-dark); }
+.home .btn--light { background: #fff; color: var(--green-dark); }
+.home .btn--light:hover { background: var(--green-tint); }
+.home .btn--ghost { color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.55); }
 .btn--ghost:hover { background: rgba(255, 255, 255, 0.12); }
 
 /* Hero */

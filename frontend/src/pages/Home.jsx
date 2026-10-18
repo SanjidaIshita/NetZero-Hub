@@ -149,15 +149,6 @@ export default function Home() {
           </div>
           <Link to="/login" className="btn btn--primary">Sign in</Link>
         </section>
-
-        {/* <footer className="home-footer">
-          <p>NetZero Hub</p>
-          <nav aria-label="Footer">
-            <Link to="/faq">FAQ</Link>
-            <Link to="/contact">Contact</Link>
-            <Link to="/privacy">Privacy</Link>
-          </nav>
-        </footer> */}
       </div>
     </main>
   );

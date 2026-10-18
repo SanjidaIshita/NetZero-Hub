@@ -59,7 +59,7 @@ function Header() {
 
   {user && (
     <>
-      <NavLink to="/bookings">My bookings</NavLink>
+      <NavLink to="/dashboard">My Services</NavLink>
       {/* <NavLink to="/book">Book a collection</NavLink> */}
       {user.is_staff && <NavLink to="/provider">Provider console</NavLink>}
       <button className="link-button" onClick={signOut}>
@@ -160,12 +160,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      {/* <footer className="site-footer container">
-        Service WMS-002 · Recycling collection scheduling ·{" "}
-        <a href="/api/docs/" target="_blank" rel="noreferrer">
-          API docs
-        </a>
-      </footer> */}
     </>
   );
 }

@@ -29,7 +29,7 @@ export default function Register() {
     setError("");
     try {
       await register(form);
-      navigate("/book", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       const fe = fieldErrors(err);
       if (Object.keys(fe).length) setErrors(fe);
@@ -43,7 +43,7 @@ export default function Register() {
     <div className="auth-layout">
       <section className="auth-intro">
         <h1>Create your NetZero Hub account</h1>
-        <p>You need an account to book, reschedule or cancel recycling collections.</p>
+        <p>ou need an account to book and manage your services.</p>
       </section>
       <form className="card auth-card" onSubmit={submit}>
         <h2>Register</h2>
