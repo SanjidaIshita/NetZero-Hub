@@ -87,6 +87,7 @@ export default function Services() {
                 {s.to && (
                   <Link
                     to={user ? s.to : '/login'}
+                    state={user ? undefined : { from: s.to }}
                     className="btn btn--primary"
                     style={{ marginTop: 'auto' }}
                   >

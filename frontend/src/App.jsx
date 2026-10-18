@@ -48,7 +48,7 @@ function Header() {
             </svg>
           </span>
           <span>
-            NetZero Hub <span className="brand-sub">Recycling collections</span>
+            NetZero Hub <span className="brand-sub">Sustainability services</span>
           </span>
         </NavLink>
         <nav className="nav">

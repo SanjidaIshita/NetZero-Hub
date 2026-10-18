@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { fieldErrors } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import Field from "../components/Field.jsx";
@@ -15,12 +15,15 @@ const FIELDS = [
 export default function Register() {
   const { user, register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // After signing up, open the service the user chose (e.g. /solar), otherwise the dashboard.
+  const from = location.state?.from || "/dashboard";
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", username: "", password: "" });
   const [errors, setErrors] = useState({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={from} replace />;
 
   async function submit(e) {
     e.preventDefault();
@@ -29,7 +32,7 @@ export default function Register() {
     setError("");
     try {
       await register(form);
-      navigate("/book", { replace: true });
+      navigate(from, { replace: true });
     } catch (err) {
       const fe = fieldErrors(err);
       if (Object.keys(fe).length) setErrors(fe);
@@ -43,7 +46,7 @@ export default function Register() {
     <div className="auth-layout">
       <section className="auth-intro">
         <h1>Create your NetZero Hub account</h1>
-        <p>You need an account to book, reschedule or cancel recycling collections.</p>
+        <p>One account for every NetZero Hub service: recycling collections, environment protection and solar installations.</p>
       </section>
       <form className="card auth-card" onSubmit={submit}>
         <h2>Register</h2>
@@ -85,7 +88,7 @@ export default function Register() {
           {busy ? "Creating account…" : "Create account"}
         </button>
         <p className="muted small">
-          Already registered? <Link to="/login">Sign in</Link>
+          Already registered? <Link to="/login" state={{ from: location.state?.from }}>Sign in</Link>
         </p>
       </form>
     </div>
