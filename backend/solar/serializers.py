@@ -48,7 +48,7 @@ class SolarRequestEventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SolarRequestEvent
-        fields = ["status", "status_label", "note", "actor", "created_at"]
+        fields = ["activity", "status", "status_label", "note", "actor", "created_at"]
 
 
 class SolarPaymentSerializer(serializers.ModelSerializer):

@@ -29,6 +29,14 @@ class PreconditionFailed(ServiceError):
     code = "precondition_failed"
 
 
+# The process activity recorded when staff move a request to each status
+STAFF_ACTIVITY = {
+    SolarRequest.Status.ASSESSED: SolarRequestEvent.Activity.ASSESS,
+    SolarRequest.Status.COMPLETED: SolarRequestEvent.Activity.INSTALL,
+    SolarRequest.Status.CANCELLED: SolarRequestEvent.Activity.CANCEL,
+}
+
+
 class PaymentDeclined(ServiceError):
     status_code = 402
     code = "payment_declined"
@@ -155,7 +163,7 @@ class SolarRequestViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
                 notes=data.get("notes", "").strip(),
             )
             SolarRequestEvent.objects.create(
-                request=obj, status=obj.status, actor="NetZero Hub",
+                request=obj, activity=SolarRequestEvent.Activity.BOOK, status=obj.status, actor="NetZero Hub",
                 note=f"Site assessment booked with {obj.installer}.",
             )
         return Response(SolarRequestSerializer(obj).data, status=status.HTTP_201_CREATED)
@@ -167,11 +175,12 @@ class SolarRequestViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
             obj = self.get_queryset().select_for_update().get(pk=self.get_object().pk)
             if not obj.is_active:
                 raise ChangeNotAllowed(f"This request is already {obj.get_status_display().lower()}.")
-            refund_note = services.refund_all(obj)
             obj.status = SolarRequest.Status.CANCELLED
-            obj.save(update_fields=["status", "amount_paid", "payment_status", "updated_at"])
-            SolarRequestEvent.objects.create(request=obj, status=obj.status, actor=obj.customer_name,
-                                             note="Cancelled by the customer." + refund_note)
+            obj.save(update_fields=["status", "updated_at"])
+            SolarRequestEvent.objects.create(request=obj, activity=SolarRequestEvent.Activity.CANCEL,
+                                             status=obj.status, actor=obj.customer_name,
+                                             note="Cancelled by the customer.")
+            services.refund_all(obj)
         return Response(SolarRequestSerializer(obj).data)
 
     @extend_schema(request=PaymentSerializer, responses=SolarRequestSerializer)
@@ -293,15 +302,14 @@ class AdminStatusUpdateView(APIView):
             )
         with transaction.atomic():
             obj = SolarRequest.objects.select_for_update().get(pk=obj.pk)
-            event_note = note
-            if new_status == SolarRequest.Status.CANCELLED:
-                event_note = (note + services.refund_all(obj)).strip()
             obj.status = new_status
             if note:
                 obj.staff_note = note
-            obj.save(update_fields=["status", "staff_note", "amount_paid", "payment_status", "updated_at"])
+            obj.save(update_fields=["status", "staff_note", "updated_at"])
             SolarRequestEvent.objects.create(
-                request=obj, status=new_status, note=event_note,
+                request=obj, activity=STAFF_ACTIVITY[new_status], status=new_status, note=note,
                 actor=request.user.get_full_name() or request.user.username,
             )
+            if new_status == SolarRequest.Status.CANCELLED:
+                services.refund_all(obj)
         return Response(SolarAdminRequestSerializer(obj).data)

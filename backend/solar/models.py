@@ -88,9 +88,21 @@ class SolarRequest(models.Model):
 
 
 class SolarRequestEvent(models.Model):
-    """Audit trail: every status change on a solar request, shown as a timeline."""
+    """Audit trail and process event log: every step on a solar request (shown to the customer as a timeline,
+    exported for process mining by `manage.py export_solar_log`)."""
+
+    class Activity(models.TextChoices):
+        BOOK = "Book site assessment"
+        PAY_DEPOSIT = "Pay deposit"
+        PAY_FULL = "Pay in full"
+        PAY_BALANCE = "Pay balance"
+        ASSESS = "Complete site assessment"
+        INSTALL = "Install system"
+        CANCEL = "Cancel request"
+        REFUND = "Issue refund"
 
     request = models.ForeignKey(SolarRequest, on_delete=models.CASCADE, related_name="events")
+    activity = models.CharField(max_length=40, choices=Activity.choices, blank=True)
     status = models.CharField(max_length=12, choices=SolarRequest.Status.choices)
     note = models.TextField(blank=True)
     actor = models.CharField(max_length=150)

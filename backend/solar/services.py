@@ -183,8 +183,10 @@ def record_payment(obj, kind, amount, brand, last4, actor):
     obj.amount_paid = money(Decimal(obj.amount_paid) + amount)
     update_payment_status(obj)
     obj.save(update_fields=["amount_paid", "payment_status", "updated_at"])
+    activity = {"DEPOSIT": SolarRequestEvent.Activity.PAY_DEPOSIT, "FULL": SolarRequestEvent.Activity.PAY_FULL,
+                "BALANCE": SolarRequestEvent.Activity.PAY_BALANCE}[kind]
     SolarRequestEvent.objects.create(
-        request=obj, status=obj.status, actor=actor,
+        request=obj, activity=activity, status=obj.status, actor=actor,
         note=f"{payment.get_kind_display()} of ${amount:,.2f} paid ({brand} ending {last4}). "
              f"Receipt {payment.receipt_number}.",
     )
@@ -192,13 +194,19 @@ def record_payment(obj, kind, amount, brand, last4, actor):
 
 
 def refund_all(obj):
-    """Refund everything paid on a request (used when it's cancelled). Returns a note for the timeline, or ''."""
+    """Refund everything paid on a request (call after cancelling it, inside the same transaction).
+    Saves the request and adds an "Issue refund" event. Returns the amount refunded."""
     paid = money(obj.amount_paid)
     if paid <= 0:
-        return ""
+        return Decimal("0.00")
     last = obj.payments.exclude(kind="REFUND").last()
     SolarPayment.objects.create(request=obj, kind="REFUND", amount=paid, card_brand=last.card_brand,
                                 card_last4=last.card_last4, receipt_number=new_receipt())
     obj.amount_paid = Decimal("0.00")
     obj.payment_status = SolarRequest.PaymentStatus.REFUNDED
-    return f" Refund of ${paid:,.2f} issued to {last.card_brand} ending {last.card_last4}."
+    obj.save(update_fields=["amount_paid", "payment_status", "updated_at"])
+    SolarRequestEvent.objects.create(
+        request=obj, activity=SolarRequestEvent.Activity.REFUND, status=obj.status, actor="NetZero Hub",
+        note=f"Refund of ${paid:,.2f} issued to {last.card_brand} ending {last.card_last4}.",
+    )
+    return paid

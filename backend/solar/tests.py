@@ -245,3 +245,51 @@ class SolarPaymentTests(TestCase):
         other.force_authenticate(get_user_model().objects.create_user("sam", "sam@example.com", "S3cure-pass-123"))
         res = other.post(self.url, {"option": "full", **self.CARD}, format="json")
         self.assertEqual(res.status_code, 404)
+
+
+class SolarProcessLogTests(TestCase):
+    """Part F: the simulated event log and the export of real recorded events."""
+
+    def test_simulation_is_repeatable_and_valid(self):
+        from .simulation import simulate
+
+        rows = simulate(cases=120, seed=7)
+        self.assertEqual(rows, simulate(cases=120, seed=7))  # same seed, same log
+        cases = {}
+        for r in sorted(rows, key=lambda r: (r["case_id"], r["timestamp"])):
+            cases.setdefault(r["case_id"], []).append(r["activity"])
+        self.assertEqual(len(cases), 120)
+        for trace in cases.values():
+            self.assertEqual(trace[0], "Book site assessment")
+            if "Install system" in trace:
+                self.assertLess(trace.index("Complete site assessment"), trace.index("Install system"))
+                self.assertNotIn("Cancel request", trace)
+            if "Issue refund" in trace:
+                self.assertEqual(trace[-2:], ["Cancel request", "Issue refund"])
+            self.assertEqual(sum(a in ("Pay deposit", "Pay in full") for a in trace) <= 1, True)
+
+    def test_export_real_events(self):
+        import csv
+        import tempfile
+        from pathlib import Path
+
+        from .process_log import rows_from_database, write_csv, write_xes
+
+        user = get_user_model().objects.create_user("priya", "priya@example.com", "S3cure-pass-123")
+        client = APIClient()
+        client.force_authenticate(user)
+        ref = client.post("/api/v1/solar/requests/", SolarApiTests.payload(self), format="json").data["reference"]
+        client.post(f"/api/v1/solar/requests/{ref}/pay/", {"option": "deposit", **SolarPaymentTests.CARD}, format="json")
+        client.post(f"/api/v1/solar/requests/{ref}/cancel/")
+
+        rows = rows_from_database()
+        self.assertEqual([r["activity"] for r in rows],
+                         ["Book site assessment", "Pay deposit", "Cancel request", "Issue refund"])
+        self.assertEqual([r["role"] for r in rows], ["System", "Customer", "Customer", "System"])
+        self.assertEqual(rows[1]["amount"], 1543.0)
+        with tempfile.TemporaryDirectory() as tmp:
+            write_csv(rows, Path(tmp) / "log.csv")
+            write_xes(rows, Path(tmp) / "log.xes")
+            with open(Path(tmp) / "log.csv") as f:
+                self.assertEqual(len(list(csv.DictReader(f))), 4)
+            self.assertIn("<trace>", (Path(tmp) / "log.xes").read_text())
