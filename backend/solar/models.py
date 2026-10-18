@@ -88,8 +88,7 @@ class SolarRequest(models.Model):
 
 
 class SolarRequestEvent(models.Model):
-    """Audit trail and process event log: every step on a solar request (shown to the customer as a timeline,
-    exported for process mining by `manage.py export_solar_log`)."""
+    """Audit trail: every step on a solar request, shown to the customer as a timeline."""
 
     class Activity(models.TextChoices):
         BOOK = "Book site assessment"
